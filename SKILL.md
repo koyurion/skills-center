@@ -53,7 +53,7 @@ lark-cli docs +fetch --doc "https://xtalpi.feishu.cn/docx/{doc-id}" --doc-format
 - 正文里被硬换行拆开的句子、编号被重置的有序列表是 docx 排版产物，整理时再合并/修正。
 - 文档中的其余代码块（如工具实现代码）属于 skill 内容，原样保留。
 
-第三步，创建临时文件夹（用 skill 名称命名，注意非法字符的处理），把 SKILL.md 放进去，以本地文件夹形式安装：
+第三步，创建临时文件夹（用 skill 名称命名，注意非法字符的处理），把 SKILL.md 放进去，以本地文件夹形式安装，注意临时文件夹要使用绝对地址：
 
 ```
 npx skills add {临时文件夹} -y
