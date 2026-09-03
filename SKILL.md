@@ -8,7 +8,7 @@ metadata:
     skills: ["lark-shared", "lark-doc", "lark-wiki"]
 ---
 
-# Skill Center
+# Skills Center
 
 ## 准备
 
