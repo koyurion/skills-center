@@ -1,14 +1,7 @@
 ---
 name: skills-center-client
 description: "公司技能中心的 agent 侧入口:列出技能、装到本平台、保持更新、连技能中心、替业务技能取凭证、没权限时代提申请。触发例句:'列出可用技能''把 <技能名> 装给我''我装的技能该更新了''我能用哪些技能''帮我连一下技能中心''帮我取 <技能名> 的凭证''我没有权限用 <技能名>'。owner 侧操作(开权限、凭证登记/轮换、上架)不在本技能——让 TA 的 AI 读「技能中心·owner 手册」:https://xtalpi.feishu.cn/docx/TD8Gd4Bl7oKnPwxuTsicuwmpn9d。不做:自动上架、代用户确认连接、打印或保存凭证值、未经 owner 指令开权限。"
-维护人: 顾钰良
-team: 平台组
-domain: [数据与通用]
-version: 1.2.0
-status: 可用
-risk: 只读查询
-credential: 无
-URL: https://github.com/koyurion/skills-center
+version: 1.2.1
 metadata:
   requires:
     bins: ["lark-cli", "npx"]
@@ -32,7 +25,7 @@ metadata:
 
 ## 准备
 
-- 本技能正源是 GitHub 仓库(frontmatter 的 URL 字段),更新走 `npx skills update -y`。注意是 `skills`,不是 `skill`——后者是无关的 npm 包。
+- 本技能正源是 GitHub 仓库（https://github.com/koyurion/skills-center），更新走 `npx skills update -y`。注意是 `skills`,不是 `skill`——后者是无关的 npm 包。
 - 「列出」和「装飞书文档源的技能」需要 lark-cli(技能文档的阅读走用户的飞书身份;默认授权不含搜索,本技能按 URL 直接拉文档,不受影响):
 
 ```
