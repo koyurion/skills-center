@@ -1,7 +1,7 @@
 ---
 name: skills-center-client
 description: "公司技能中心的 agent 侧入口:列出技能、装到本平台、保持更新、连技能中心、替业务技能取凭证、没权限时代提申请。触发例句:'列出可用技能''把 <技能名> 装给我''我装的技能该更新了''我能用哪些技能''帮我连一下技能中心''帮我取 <技能名> 的凭证''我没有权限用 <技能名>'。owner 侧操作(开权限、凭证登记/轮换、上架)不在本技能——让 TA 的 AI 读「技能中心·owner 手册」:https://xtalpi.feishu.cn/docx/TD8Gd4Bl7oKnPwxuTsicuwmpn9d。不做:自动上架、代用户确认连接、打印或保存凭证值、未经 owner 指令开权限。"
-version: 1.2.1
+version: 1.2.2
 metadata:
   requires:
     bins: ["lark-cli", "npx"]
@@ -112,7 +112,7 @@ curl -s http://10.254.21.214:8901/auth/pair/<pair_id> -H "Authorization: Bearer 
 
 ## 取值(替业务技能代办)
 
-先拿数字 id——GET /creds 的 usable 里每行是 {id, skill_id, target, tier},按 skill_id 对上要取的技能:
+先拿数字 id——GET /creds 的 usable 里每行是 {id, skill_id, target},按 skill_id 对上要取的技能:
 
 ```
 curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <令牌>"
@@ -122,25 +122,25 @@ curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <令牌>"
 
 ```
 curl -s -X POST http://10.254.21.214:8901/creds/<数字id>/value -H "Authorization: Bearer <令牌>"
-# → {"lease_id":"...","skill_id":"...","target":"...","secret":"...","expires_at":"<租约到期时刻,取值后4小时>"}
+# → {"skill_id":"...","target":"...","secret":"...","note":"值只供当次使用,要用再取..."}
 ```
 
-**硬约束:值只允许直接交给需要它的进程或当次运行的环境变量;不得打印、不得写入对话、不得存文件。**每次借用 4 小时,用完即弃、要用再取;借到的是真值,有效期由发它的系统决定——万一哪里存了旧值,轮换后接口自然报错,重取一次就好。用户全程不接触值。
+**硬约束:值只允许直接交给需要它的进程或当次运行的环境变量;不得打印、不得写入对话、不得存文件。**要用就取,值只供当次使用;取到的是真值,有效期由发它的系统决定——万一哪里存了旧值,轮换后接口自然报错,重取一次就好。用户全程不接触值。
 
 ## 没有权限时(取值被拒)
 
-取值被拒的 403 响应里有负责人姓名(owner_name,不含邮箱)。agent 主动说:
+取值被拒的 403 响应里有负责人姓名(owner_name,不含邮箱)和一句 hint。授权跟着绑定文档的分享设置走——被拒多半是因为用户不是这篇文档的协作者。agent 主动说:
 
 > 「我替你向负责人提个申请,好吗?」
 
-- 凭证档是「文档协作者」:agent 替用户向该技能文档的 owner 申请阅读权限,用户身份执行——
+- agent 替用户向该技能文档的 owner 申请阅读权限,用户身份执行——
 
 ```
 lark-cli drive +apply-permission --token <技能文档token> --type docx --perm view --as user
 ```
 
 - 然后告诉用户:「已申请,owner 同意后跟我说『再试一次』。」
-- 凭证档是「指定的人」:没有可点的申请入口——agent 以用户身份给负责人发飞书私信代为申请(lark-cli im +messages-send --as user),内容写明技能名和用户姓名。
+- 例外:hint 里写着「关掉互联网链接」时,申请没有用——是文档开了互联网链接分享,凭证被服务一律挡住。如实转告用户:「请负责人在文档分享设置里把互联网链接关掉,只对公司开或关闭,这条凭证就能恢复。」
 
 ## 不做什么
 
