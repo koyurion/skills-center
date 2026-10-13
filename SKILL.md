@@ -1,7 +1,7 @@
 ---
 name: skills-center-client
-description: "公司技能中心的 agent 侧入口:列出技能、装到本平台、保持更新、连技能中心、替业务技能取凭证、没权限时代提申请。触发例句:'列出可用技能''把 <技能名> 装给我''我装的技能该更新了''我能用哪些技能''帮我连一下技能中心''帮我取 <技能名> 的凭证''我没有权限用 <技能名>'。owner 侧操作(开权限、凭证登记/轮换、上架)不在本技能——让 TA 的 AI 读「技能中心·owner 手册」:https://xtalpi.feishu.cn/docx/TD8Gd4Bl7oKnPwxuTsicuwmpn9d。不做:自动上架、代用户确认连接、打印或保存凭证值、未经 owner 指令开权限。"
-version: 1.2.2
+description: "公司技能中心的 agent 侧入口:列出技能、装到本平台、保持更新、连技能中心(会话授权,每会话一次,授权只留会话内存)、替业务技能取凭证、没权限时代提申请。触发例句:'列出可用技能''把 <技能名> 装给我''我装的技能该更新了''我能用哪些技能''帮我连一下技能中心''帮我取 <技能名> 的凭证''我没有权限用 <技能名>'。owner 侧操作(开权限、凭证登记/轮换、上架)不在本技能——让 TA 的 AI 读「技能中心·owner 手册」:https://xtalpi.feishu.cn/docx/TD8Gd4Bl7oKnPwxuTsicuwmpn9d。不做:自动上架、代用户确认连接、打印或保存凭证值、保存或转述连接授权、未经 owner 指令开权限。"
+version: 2.0.0
 metadata:
   requires:
     bins: ["lark-cli", "npx"]
@@ -19,7 +19,7 @@ metadata:
 | 「把 <技能名> 装给我」 | 按来源走「安装 / 更新」 |
 | 「我装的技能该更新了」 | 同安装,覆盖旧版 |
 | 「我能用哪些技能?」 | 按身份分层,固定三行回答 |
-| 「帮我连一下技能中心」 | 发起配对,用户点一次链接 |
+| 「帮我连一下技能中心」 | 发起会话授权,用户点一次链接 |
 | 「帮我取 <技能名> 的凭证」 | 连技能中心取值,值只交给进程 |
 | 「我没有权限用 <技能名>」 | 主动提出替用户向负责人提申请 |
 
@@ -46,14 +46,14 @@ lark-cli docs +fetch --doc https://xtalpi.feishu.cn/docx/Rn1TdQRIIoemjmxOlg3cJKd
 
 ## 我能用哪些(固定问法,三行输出)
 
-用户问「我能用哪些技能」时,先看清单,再按身份分层。已连接技能中心的,问一次:
+用户问「我能用哪些技能」时,先看清单,再按身份分层。本会话已授权的,问一次:
 
 ```
-curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <令牌>"
+curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <uat>"
 ```
 
-- **已连接**:GET /creds 的 usable 里是能取到的凭证技能,加上清单里状态「可用」且使用说明没提凭证的技能,都算「能直接用」;清单里提到凭证但不在 usable 里的归「需要申请」。
-- **未连接**:状态「可用」的技能里,使用说明没提凭证的直接能用;提到凭证的归「需要申请」,并建议先连接技能中心。
+- **本会话已授权**:GET /creds 的 usable 里是能取到的凭证技能,加上清单里状态「可用」且使用说明没提凭证的技能,都算「能直接用」;清单里提到凭证但不在 usable 里的归「需要申请」。
+- **未授权(本会话)**:状态「可用」的技能里,使用说明没提凭证的直接能用;提到凭证的归「需要申请」,并建议先连一下技能中心(每会话一次,见下节)。
 - 「需要申请」的负责人姓名:从技能清单那一行的使用说明、或技能文档 frontmatter 的维护人里找(取值被拒的 403 响应里也有)。
 
 回答固定三行,不要自由发挥:
@@ -86,42 +86,43 @@ curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <令牌>"
 
 **From git 或本地**:`npx skills add <仓库地址> -y`(项目级;全局加 -g)安装;更新 `npx skills update -y`。文档源技能没有 update——重跑上面的安装流程,版本号没变的跳过。
 
-## 连接技能中心(配对,只需一次)
+## 连接技能中心(会话授权,每会话一次)
 
 agent 发起,用户只在飞书点一次「确认连接」:
 
 ```
-curl -s -X POST http://10.254.21.214:8901/auth/pair -d '{"mode":"device","poll_secret":"<agent生成的随机串>"}'
+curl -s -X POST http://10.254.21.214:8901/auth/pair -d '{"poll_secret":"<agent生成的随机串>"}'
 # → {"pair_id":"...","user_code":"K7QM-3XP9","pair_url":"http://10.254.21.214:8901/auth/..."}
 ```
 
 把 pair_url 原样给用户,配这段话:
 
-> 「点开这个链接授权,只需要一次。请核对页面上的配对码和我这里显示的一致:K7QM-3XP9——对得上再点确认。」
+> 「点开这个链接授权。请核对页面上的配对码和我这里显示的一致:K7QM-3XP9——对得上再点确认。本次会话(约 2 小时)内有效,新会话要用时再点一次。」
 
-用户点确认后,agent 轮询取令牌(poll_secret 防抢跑,一次性取走即清):
+用户点确认后,agent 轮询取 uat(poll_secret 防抢跑,一次性取走即清):
 
 ```
 curl -s http://10.254.21.214:8901/auth/pair/<pair_id> -H "Authorization: Bearer <poll_secret>"
-# → {"token":"..."}
+# → {"status":"ok","uat":"...","name":"...","email":"..."}
 ```
 
-- 本地 agent(Cursor/Claude Code/豆包本地电脑):令牌存 ~/.skills-center/device-token(权限 0600),90 天没用自动失效;每次复用前先查一次身份,并向用户确认一句「我用的是 <姓名> 的连接,对吗?」(防云端共享主机串号)
-- 内网 agent 平台(agentScope):令牌只存会话内存,12 小时,不落盘
-- 解除连接:用户说「不再用了」时,agent 执行 POST http://10.254.21.214:8901/me/revoke(Bearer 令牌),删本地令牌文件
+- uat 是飞书签发的会话授权,只放 agent 会话内存(约 2 小时)——**不写文件、不落盘、不进对话**;此后所有请求带 Authorization: Bearer <uat>
+- 拿到后先 GET /me(带 Bearer <uat>)向用户确认一句「我用的是 <姓名> 的授权,对吗?」——本地与云端平台同一条规矩,防共享主机串号
+- 请求收到 401(授权已过期):同一会话超过约 2 小时会这样,重新走一遍本节流程即可——系统里没有任何长期令牌,这是设计不是故障
+- 断开:会话结束自然失效;要立即断,在飞书「设置 → 应用授权」里取消「技能中心」,即刻生效
 
 ## 取值(替业务技能代办)
 
 先拿数字 id——GET /creds 的 usable 里每行是 {id, skill_id, target},按 skill_id 对上要取的技能:
 
 ```
-curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <令牌>"
+curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <uat>"
 ```
 
 再取值(URL 里是 usable 返回的数字 id,不是 SK-xxxxx;不在 usable 里=还没权限,走「没有权限时」):
 
 ```
-curl -s -X POST http://10.254.21.214:8901/creds/<数字id>/value -H "Authorization: Bearer <令牌>"
+curl -s -X POST http://10.254.21.214:8901/creds/<数字id>/value -H "Authorization: Bearer <uat>"
 # → {"skill_id":"...","target":"...","secret":"...","note":"值只供当次使用,要用再取..."}
 ```
 
@@ -145,8 +146,8 @@ lark-cli drive +apply-permission --token <技能文档token> --type docx --perm 
 ## 不做什么
 
 - 不上架、不代改技能清单——owner 侧见下节指路
-- 不代用户确认连接——配对链接必须用户本人点,对话里的口头「可以」不算数
-- 不打印、不保存、不代填凭证值——值只在进程与环境变量里存在;登记/轮换的命令由 owner 亲手跑
+- 不代用户确认连接——授权链接必须用户本人点,对话里的口头「可以」不算数
+- 不打印、不保存、不代填凭证值,uat 也不落盘——两者只在会话内存与当次进程里存在;登记/轮换的命令由 owner 亲手跑
 - 未经 owner 指令不执行任何开权限命令(开权限的命令在 owner 手册技能里)
 
 ## owner 侧指路
