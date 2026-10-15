@@ -2,7 +2,7 @@
 name: skills-center-client
 description: "公司技能中心的同事侧入口:对 AI 说自然语言,就能列出、安装、更新技能,连接技能中心,替业务技能取凭证,没权限时代提申请。触发例句:'列出可用技能''把 <技能名> 装给我''我装的技能该更新了''我能用哪些技能''帮我连一下技能中心''帮我取 <技能名> 的凭证''我没有权限用 <技能名>'。连接是会话授权:每会话点一次,授权只留在会话内存,不落盘。开权限、凭证登记/轮换、上架不在本技能——由「技能中心·owner 手册」承载,负责人的 AI 读它照做:https://xtalpi.feishu.cn/docx/TD8Gd4Bl7oKnPwxuTsicuwmpn9d。不做:自动上架、代用户确认连接、打印或保存凭证值、保存或转述连接授权、开权限;权限一律由 owner 在文档侧开,被拒时本技能只代提申请。"
 metadata:
-  version: 3.0.0
+  version: 4.0.0
   requires:
     bins: ["lark-cli", "npx"]
 ---
@@ -34,7 +34,8 @@ lark-cli auth login                     # 设备码,用户自己扫
 lark-cli auth status                    # agent 代跑自检
 ```
 
-- 本技能要求 agent 能访问公司内网;豆包工作·云电脑模式到不了内网,凭证技能在那边如实说不可用(不是故障)。
+- 本技能要求 agent 能访问 xtalpi.feishuapp.com(公网 HTTPS)——不再要求公司内网,豆包工作·云电脑模式也能用凭证技能了(旧版的内网要求已随服务上云取消)。
+- 连接与取值的每个请求都要带网关 API key(管理员下发的应用级凭证,与个人身份无关):存本地私密文件(如 `~/.sc-api-key`,单行内容,`chmod 600`),命令里注入——**不进对话、不落仓库**;下文写作 `<api_key>`。
 
 ## 列出
 
@@ -49,7 +50,8 @@ lark-cli docs +fetch --doc https://xtalpi.feishu.cn/docx/Rn1TdQRIIoemjmxOlg3cJKd
 用户问「我能用哪些技能」时,先看清单,再按身份分层。本会话已授权的,问一次:
 
 ```
-curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <uat>"
+curl -s https://xtalpi.feishuapp.com/app/app_17fzk95wm91/openapi/creds \
+  -H "Authorization: Bearer <api_key>" -H "X-Sc-Token: <session_token>"
 ```
 
 - **本会话已授权**:GET /creds 的 usable 里是能取到的凭证技能,加上清单里状态「可用」且使用说明没提凭证的技能,都算「能直接用」;清单里提到凭证但不在 usable 里的归「需要申请」。
@@ -91,38 +93,43 @@ curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <uat>"
 agent 发起,用户只在飞书点一次「确认连接」:
 
 ```
-curl -s -X POST http://10.254.21.214:8901/auth/pair -d '{"poll_secret":"<agent生成的随机串>"}'
-# → {"pair_id":"...","user_code":"K7QM-3XP9","pair_url":"http://10.254.21.214:8901/auth/..."}
+curl -s -X POST https://xtalpi.feishuapp.com/app/app_17fzk95wm91/openapi/auth/pair \
+  -H "Authorization: Bearer <api_key>" -H "Content-Type: application/json" \
+  -d '{"poll_secret":"<agent生成的随机串>"}'
+# → {"pair_id":"...","user_code":"K7QM-3XP9","pair_url":"https://xtalpi.feishuapp.com/app/app_17fzk95wm91/pair?pair_id=..."}
 ```
 
 把 pair_url 原样给用户,配这段话:
 
 > 「点开这个链接授权。请核对页面上的配对码和我这里显示的一致:K7QM-3XP9——对得上再点确认。本次会话(约 2 小时)内有效,新会话要用时再点一次。」
 
-用户点确认后,agent 轮询取 uat(poll_secret 防抢跑,一次性取走即清):
+用户点确认后,agent 轮询取 session_token(poll_secret 防抢跑,一次性取走即清):
 
 ```
-curl -s http://10.254.21.214:8901/auth/pair/<pair_id> -H "Authorization: Bearer <poll_secret>"
-# → {"status":"ok","uat":"...","name":"...","email":"..."}
+curl -s https://xtalpi.feishuapp.com/app/app_17fzk95wm91/openapi/auth/pair/<pair_id> \
+  -H "Authorization: Bearer <api_key>" -H "X-Sc-Token: <poll_secret>"
+# → {"status":"ok","session_token":"...","name":"...","email":"..."}
 ```
 
-- uat 是飞书签发的会话授权,只放 agent 会话内存(约 2 小时)——**不写文件、不落盘、不进对话**;此后所有请求带 Authorization: Bearer <uat>
-- 拿到后先 GET /me(带 Bearer <uat>)向用户确认一句「我用的是 <姓名> 的授权,对吗?」——本地与云端平台同一条规矩,防共享主机串号
+- session_token 是技能中心自签的会话令牌(约 2 小时),只放 agent 会话内存——**不写文件、不落盘、不进对话**;此后所有请求带 `X-Sc-Token: <session_token>`(Authorization 头装的是网关 API key)
+- 拿到后先 GET /me(带齐上面两个头)向用户确认一句「我用的是 <姓名> 的授权,对吗?」——本地与云端平台同一条规矩,防共享主机串号
 - 请求收到 401(授权已过期):同一会话超过约 2 小时会这样,重新走一遍本节流程即可——系统里没有任何长期令牌,这是设计不是故障
-- 断开:会话结束自然失效;要立即断,在飞书「设置 → 应用授权」里取消「技能中心」,即刻生效
+- 断开:会话结束自然失效;妙搭版没有飞书「设置 → 应用授权」的一键取消了——要立即断,等约 2 小时过期,或请负责人轮换服务会话密钥(全员全断,owner 手册操作)
 
 ## 取值(替业务技能代办)
 
 先拿数字 id。GET /creds 的 usable 里每行是 {id, skill_doc, target},对法两步:从技能清单那行拿技能文档地址,取 wiki/ 或 docx/ 后面那串 token;在 usable 里找 **skill_doc 等于这串 token、target 等于技能文档里写的凭证名**(文档没写凭证名就是 default)的行,拿它的数字 id:
 
 ```
-curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <uat>"
+curl -s https://xtalpi.feishuapp.com/app/app_17fzk95wm91/openapi/creds \
+  -H "Authorization: Bearer <api_key>" -H "X-Sc-Token: <session_token>"
 ```
 
 再取值(URL 里是 usable 返回的数字 id;不在 usable 里=还没权限,走「没有权限时」):
 
 ```
-curl -s -X POST http://10.254.21.214:8901/creds/<数字id>/value -H "Authorization: Bearer <uat>"
+curl -s -X POST https://xtalpi.feishuapp.com/app/app_17fzk95wm91/openapi/creds/<数字id>/value \
+  -H "Authorization: Bearer <api_key>" -H "X-Sc-Token: <session_token>"
 # → {"skill_doc":"...","target":"...","secret":"...","note":"值只供当次使用,要用再取..."}
 ```
 
@@ -147,7 +154,7 @@ lark-cli drive +apply-permission --token <技能文档token> --type docx --perm 
 
 - 不上架、不代改技能清单——owner 侧见下节指路
 - 不代用户确认连接——授权链接必须用户本人点,对话里的口头「可以」不算数
-- 不打印、不保存、不代填凭证值,uat 也不落盘——两者只在会话内存与当次进程里存在;登记/轮换的命令由 owner 亲手跑
+- 不打印、不保存、不代填凭证值,session_token 也不落盘——只在会话内存与当次进程里存在;网关 API key 只按上文的本地私密文件存放,不进对话、不落仓库。登记/轮换的命令由 owner 亲手跑
 - 未经 owner 指令不执行任何开权限命令(开权限的命令在 owner 手册技能里)
 
 ## owner 侧指路
