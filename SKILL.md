@@ -1,8 +1,8 @@
 ---
 name: skills-center-client
-description: "公司技能中心的 agent 侧入口:列出技能、装到本平台、保持更新、连技能中心(会话授权,每会话一次,授权只留会话内存)、替业务技能取凭证、没权限时代提申请。触发例句:'列出可用技能''把 <技能名> 装给我''我装的技能该更新了''我能用哪些技能''帮我连一下技能中心''帮我取 <技能名> 的凭证''我没有权限用 <技能名>'。owner 侧操作(开权限、凭证登记/轮换、上架)不在本技能——让 TA 的 AI 读「技能中心·owner 手册」:https://xtalpi.feishu.cn/docx/TD8Gd4Bl7oKnPwxuTsicuwmpn9d。不做:自动上架、代用户确认连接、打印或保存凭证值、保存或转述连接授权、未经 owner 指令开权限。"
-version: 2.0.0
+description: "公司技能中心的同事侧入口:对 AI 说自然语言,就能列出、安装、更新技能,连接技能中心,替业务技能取凭证,没权限时代提申请。触发例句:'列出可用技能''把 <技能名> 装给我''我装的技能该更新了''我能用哪些技能''帮我连一下技能中心''帮我取 <技能名> 的凭证''我没有权限用 <技能名>'。连接是会话授权:每会话点一次,授权只留在会话内存,不落盘。开权限、凭证登记/轮换、上架不在本技能——由「技能中心·owner 手册」承载,负责人的 AI 读它照做:https://xtalpi.feishu.cn/docx/TD8Gd4Bl7oKnPwxuTsicuwmpn9d。不做:自动上架、代用户确认连接、打印或保存凭证值、保存或转述连接授权、开权限;权限一律由 owner 在文档侧开,被拒时本技能只代提申请。"
 metadata:
+  version: 3.0.0
   requires:
     bins: ["lark-cli", "npx"]
 ---
@@ -113,17 +113,17 @@ curl -s http://10.254.21.214:8901/auth/pair/<pair_id> -H "Authorization: Bearer 
 
 ## 取值(替业务技能代办)
 
-先拿数字 id——GET /creds 的 usable 里每行是 {id, skill_id, target},按 skill_id 对上要取的技能:
+先拿数字 id。GET /creds 的 usable 里每行是 {id, skill_doc, target},对法两步:从技能清单那行拿技能文档地址,取 wiki/ 或 docx/ 后面那串 token;在 usable 里找 **skill_doc 等于这串 token、target 等于技能文档里写的凭证名**(文档没写凭证名就是 default)的行,拿它的数字 id:
 
 ```
 curl -s http://10.254.21.214:8901/creds -H "Authorization: Bearer <uat>"
 ```
 
-再取值(URL 里是 usable 返回的数字 id,不是 SK-xxxxx;不在 usable 里=还没权限,走「没有权限时」):
+再取值(URL 里是 usable 返回的数字 id;不在 usable 里=还没权限,走「没有权限时」):
 
 ```
 curl -s -X POST http://10.254.21.214:8901/creds/<数字id>/value -H "Authorization: Bearer <uat>"
-# → {"skill_id":"...","target":"...","secret":"...","note":"值只供当次使用,要用再取..."}
+# → {"skill_doc":"...","target":"...","secret":"...","note":"值只供当次使用,要用再取..."}
 ```
 
 **硬约束:值只允许直接交给需要它的进程或当次运行的环境变量;不得打印、不得写入对话、不得存文件。**要用就取,值只供当次使用;取到的是真值,有效期由发它的系统决定——万一哪里存了旧值,轮换后接口自然报错,重取一次就好。用户全程不接触值。
