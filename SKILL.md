@@ -138,8 +138,8 @@ lark-cli docs +fetch --doc https://xtalpi.feishu.cn/docx/C59MdSl9Zo5rKFxTUaecSv8
 | --- | --- |
 | Skill Name | Skill文档 frontmatter 的 name(关联键,填展示名/标题名接不上);一技一行,别建重名行 |
 | 凭证值契约 | JSON格式,支持多键同时注入,如 `{"XFC_TOKEN":"xxxxxx"}`;注入键 = Skill文档声明的键名,大写蛇形英文(XFC_TOKEN) |
-| 凭证权限-行存储模式 | 通过高级权限和人员字段控制:Owner 必填(必含维护人自己,可管理当前凭证);Editor 选填(可编辑,不可删除);Viewer 选填(仅可阅读使用);Credentials 填 JSON 字符串 |
-| 凭证权限-云文档存储模式 | 建只放 JSON 的凭证云文档,关闭其链接分享(必须);个人/群/部门加为文档协作者,分可管理/可编辑/可阅读,对应行存储的 Owner/Editor/Viewer;该行 Credentials 回填文档链接。注意:此模式下凭证表该行人人可见,鉴权依赖云文档的协作者权限 |
+| 凭证权限-行存储模式 | 通过高级权限和人员字段控制:<br>· Owner 必填——必含维护人自己,可管理当前凭证<br>· Editor 选填——可编辑,不可删除<br>· Viewer 选填——仅可阅读使用<br>· Credentials 填 JSON 字符串 |
+| 凭证权限-云文档存储模式 | · 建只放 JSON 的凭证云文档,关闭其链接分享(必须)<br>· 个人/群/部门加为文档协作者,分可管理/可编辑/可阅读,对应行存储的 Owner/Editor/Viewer<br>· 该行 Credentials 回填文档链接<br>· 注意:此模式下凭证表该行人人可见,鉴权依赖云文档的协作者权限 |
 | 最后轮换 | 填登记时间 |
 | 状态 | 填「启用」 |
 
