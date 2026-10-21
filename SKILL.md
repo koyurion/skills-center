@@ -1,60 +1,39 @@
 ---
-name: skills-center-client
-description: "Skills Center 客户端: Skill的**商店 + 钥匙柜**:使用者从清单装Skill、取凭证;开发者管凭证、上架Skill。触发例句:'列出可用Skill''把 <Skill名> 装给我''我装的Skill该更新了''我能用哪些Skill''帮我取 <Skill名> 的凭证''我没有权限用 <Skill名>''给张三开 <Skill> 的权限''把这个凭证授权给研发一部''把这条凭证登记进Skills Center''轮换/吊销 <Skill名> 的凭证''帮我上架一个Skill'。身份 = lark-cli 登录的飞书账号,权限 = 能读到的Skill文档 + 凭证表里能看到的行。"
+name: skills-center
+description: "Skills Center 客户端(Skill的商店):使用者从清单发现、安装、更新Skill;开发者写Skill文档、上架。触发例句:'列出可用Skill''把 <Skill名> 装给我''我装的Skill该更新了''我能用哪些Skill''帮我上架一个Skill'。"
 metadata:
-  version: 6.7.0
+  version: 6.8.0
   requires:
     bins: ["lark-cli", "npx"]
 ---
 
 # Skills Center 客户端
 
-Skill的**商店 + 钥匙柜**:使用者从清单装Skill、取凭证;开发者管凭证、上架Skill。
+Skill的**商店**：发现、安装、更新、上架。凭证（钥匙柜）由姊妹 skill **skills-center-credentials** 承担——Skill 运行要取值、授权、轮换凭证时走它。
 
 ## 准备&背景知识
 
-1. 一个工具依赖: 运行时身份层
+1. 一个运行时身份层：lark-cli（装好并确认登录）
 
-- 安装 lark-cli 并登录。每人扫自己的码——user_access_token 绑定扫码者本人,不存在冒用:
+- 安装：`npx @larksuite/cli@latest install -y`；已可用（如平台预装）就跳过
+- 自检：`lark-cli whoami`——`tokenStatus: ready` 即可用
 
-```
-npx @larksuite/cli@latest install -y
-lark-cli auth login      # 设备码,用户自己扫
-lark-cli auth status     # agent 代跑自检
-```
-
-2. 三个关键资源
+2. 两个关键资源
 
 | 资源 | 地址 |
 | --- | --- |
 | Skill清单 | https://xtalpi.feishu.cn/docx/C59MdSl9Zo5rKFxTUaecSv8Jnx5 |
-| 凭证表(Base) | https://xtalpi.feishu.cn/base/T1AybolM8aYqfGstuDzce71Gn1f?table=tblsPkpfCVAnjJb8 |
 | Skill规范指引及示例 | https://xtalpi.feishu.cn/drive/folder/XCrxfCSWRlOJHldm1ZtcXOGBnPe |
 
-3. 两个权限分类: Skill文档权限与凭证权限
+3. 两个权限分类：Skill文档权限与凭证权限
 
 - Skill文档的权限 = 谁能装这个Skill；凭证表行的权限 = 谁能取到这个Skill的钥匙。两者通过「Skill名」关联，互不拖累。
 
 | 权限分开的理由 | 理由解释 |
 | --- | --- |
-| 受众天然不同 | Skill文档是说明书，希望越多人能读越好（发现→学会→装上）；凭证是钥匙，希望越少人拿到越好。 绑在一起只有两个坏结局：为了传播把钥匙发宽了，或者为了保钥匙把说明书藏起来。 |
-| 生命周期不同 | 文档改的是用法说明，凭证换的是值本身。 若把凭证授权绑在文档分享设置上，轮换凭证和整理文档会互相牵动。 |
-| 粒度对不上 | 一个Skill可能有多份凭证（如:只读一份、写入一份），受众各不相同；文档只有一份。 |
-
-4. 两种凭证存储方式 (若Skill用到凭证才关注)
-
-- 由于飞书表格高级权限的行权限, 不支持群聊和部门的挂载授权, 故凭证存储分为: 行存储和云文档存储两种方式.
-
-- 模式**自动判定**,维护人不用选:授权对象只有个人 → 行存储;涉及群/部门 → 云文档存储。
-
-- 公式列「存储模式」= `IF(LEFT([Credentials],8)="https://","云文档存储","行存储")`,行级权限和取值都以它为准。
-
-|  | 行存储(默认) | 云文档存储 |
-| --- | --- | --- |
-| 值放哪 | Credentials 单元格直接存 JSON | 单独的凭证文档(关闭链接分享),Credentials 放文档链接 |
-| 授权对象 | 只认具体的人(该行Owner/ Editor/Viewer) | 文档协作者 |
-| 群/部门整挂 | 不支持,只能逐人展开进 Viewer、定期重刷 | 支持、推荐,成员进出自动跟随 |
-| 没权限的表现 | 整行直接看不见 | 行人人可见(仅元数据),凭证文档打不开 |
+| 受众天然不同 | Skill文档是说明书，希望越多人能读越好（发现→学会→装上）；凭证是钥匙，希望越少人拿到越好。绑在一起只有两个坏结局：为了传播把钥匙发宽了，或者为了保钥匙把说明书藏起来。 |
+| 生命周期不同 | 文档改的是用法说明，凭证换的是值本身。若把凭证授权绑在文档分享设置上，轮换凭证和整理文档会互相牵动。 |
+| 粒度对不上 | 一个Skill可能有多份凭证（如：只读一份、写入一份），受众各不相同；文档只有一份。 |
 
 ## 使用者
 
@@ -64,57 +43,32 @@ lark-cli auth status     # agent 代跑自检
 lark-cli docs +fetch --doc https://xtalpi.feishu.cn/docx/C59MdSl9Zo5rKFxTUaecSv8Jnx5 --doc-format markdown --as user
 ```
 
-清单正源,表格按转换规则解。查本地已装:`npx skills list`。
+清单正源，表格按转换规则解。查本地已装：`npx skills list`。
 
 ### 我能用哪些
 
-- 以用户自身权限逐一访问Skill链接: 若能访问,则代表有权限使用该Skill.
+- 以用户自身权限逐一访问清单里的Skill链接：能打开 = 能用（能读 = 能装）；其中「需要凭证吗」声明了注入键的，凭证可用性按 skills-center-credentials「取凭证（含可用性判定）」走
+- 打不开（403）= 没有文档权限。要申请的，经用户确认后跑 `lark-cli drive +apply-permission --token <Skill文档地址> --perm view --as user` 向文档 Owner 发申请卡片（view 即够）；被拒或文档不接受申请，让用户直接联系 Owner，不重试
 
-- 若Skill中的「需要凭证吗」章节提及需要凭证,则还需要探查凭证表:
+### Skill安装与更新（Agent看）
 
-| 返回里 | 判定 |
-| --- | --- |
-| 行存储模式行,状态=启用 | 能直接用 |
-| 云文档存储模式行 | 再开凭证文档抽查:打得开 = 能直接用,打不开 = 需要申请 |
-| 状态=吊销 | 需要申请(告知用户已吊销) |
-| 不在返回里 | 需要申请 |
+**From feishu.cn**（装和更新同一条路，更新 = 版本号变了就重跑）：
 
-### Skill安装与更新(Agent看)
-
-**From feishu.cn**(装和更新同一条路,更新 = 版本号变了就重跑):
-
-1. 取文档:`lark-cli docs +fetch --doc <文档地址> --doc-format markdown --as user`
-2. 按转换规则组装 SKILL.md(临时目录)
-3. 安装:`npx skills add <SKILL.md 所在目录> -y`(项目级默认,全局加 -g;传目录不传文件,传文件路径报 No valid skills found)
-4. 附件 zip(多脚本Skill):lark 拿不到附件,提醒用户从文档附件另存,解压到 SKILL.md 同目录;完事清理临时文件(rm -rf 被权限策略拦截时,改用 rm 文件 + rmdir 目录)
-5. **转换规则**(飞书文档 → SKILL.md,agent 照此执行):
+1. 取文档：`lark-cli docs +fetch --doc <文档地址> --doc-format markdown --as user`
+2. 按转换规则组装 SKILL.md（临时目录）
+3. 安装：`npx skills add <SKILL.md 所在目录> -y`（项目级默认，全局加 -g；传目录不传文件，传文件路径报 No valid skills found）
+4. 附件 zip（多脚本Skill）：lark 拿不到附件，提醒用户从文档附件另存，解压到 SKILL.md 同目录；完事清理临时文件（rm -rf 被权限策略拦截时，改用 rm 文件 + rmdir 目录）
+5. **转换规则**（飞书文档 → SKILL.md，agent 照此执行）：
 
 | 导出样式 | 处理 |
 | --- | --- |
-| 开头 YAML 代码块 | 去掉 markdown 围栏成真 frontmatter(块内自带首尾 ---,原样保留别再包一层);收尾 --- 前追加一行 `URL: <文档地址>`。正文最前的 title 元素不算内容,yaml 块仍是第一个内容块 |
-| 标题 / 列表 | 第一个标题转正文 H1;修复被重置的有序列表编号 |
-| 硬换行 | 飞书按屏宽断行,合并成段 |
-| 表格 | Markdown 表和 HTML table 都直接解;地址列是纯文本完整网址,原样用 |
-| @文档 / @人(cite 标签) | 带 doc-id 的按类型重建网址(docx 走 `https://xtalpi.feishu.cn/docx/<id>`,wiki 走 `https://xtalpi.feishu.cn/wiki/<id>`);带 user-id 的只当人名读,不是链接 |
+| 开头 YAML 代码块 | 去掉 markdown 围栏成真 frontmatter（块内自带首尾 ---，原样保留别再包一层）；收尾 --- 前追加一行 `URL: <文档地址>`。正文最前的 title 元素不算内容，yaml 块仍是第一个内容块 |
+| 标题 / 列表 | 第一个标题转正文 H1；修复被重置的有序列表编号 |
+| 硬换行 | 飞书按屏宽断行，合并成段 |
+| 表格 | Markdown 表和 HTML table 都直接解；地址列是纯文本完整网址，原样用 |
+| @文档 / @人（cite 标签） | 带 doc-id 的按类型重建网址（docx 走 `https://xtalpi.feishu.cn/docx/<id>`，wiki 走 `https://xtalpi.feishu.cn/wiki/<id>`）；带 user-id 的只当人名读，不是链接 |
 
-**From git 或本地**:`npx skills add <仓库地址> -y`(项目级;全局加 -g);更新 `npx skills update -y`。文档源Skill没有 update——重跑安装流程,版本号没变的跳过。
-
-### 取凭证值
-
-- Skill文档-「需要凭证吗」里只声明注入键,但不注入值——用户运行Skill或说「帮我取凭证」时,由本Skill代跑:
-
-- 以用户身份读凭证表,获取Skill Name等于当前Skill名称的行. 按结果处理:
-
-| 结果 | 处理 |
-| --- | --- |
-| 有行 | 按 Credentials 开头判模式(https:// = 云文档存储,否则行存储)。行存储取单元格 JSON;云文档存储开链接取文档中的 JSON 代码块。按Skill文档-「需要凭证吗」中的注入键写成当次运行的环境变量 |
-| 状态 =「吊销」 | 视为不可用,如实告知用户 |
-| 行为空 / 文档打不开 | 没权限,走「没权限时」 |
-
-### 没权限时
-
-- agent 主动提示帮用户给维护人发一条消息(bot 身份,说清:谁、要哪个Skill、为什么)。
-- 维护人同意后按「凭证·登记」的对应模式加人(行存储进该行 Viewer,云文档存储加为文档协作者);授权即时生效,回来再说一次「取凭证」就行。
+**From git 或本地**：`npx skills add <仓库地址> -y`（项目级；全局加 -g）；更新 `npx skills update -y`。文档源Skill没有 update——重跑安装流程，版本号没变的跳过。
 
 ## 开发者
 
@@ -122,50 +76,24 @@ lark-cli docs +fetch --doc https://xtalpi.feishu.cn/docx/C59MdSl9Zo5rKFxTUaecSv8
 
 - 参考「Skill规范指引及示例」 https://xtalpi.feishu.cn/drive/folder/XCrxfCSWRlOJHldm1ZtcXOGBnPe 进行Skill编写
 
-- Skill文档权限: 基于飞书云文档的高级权限做ACL(Access Control List, 访问控制列表)
+- Skill文档权限：基于飞书云文档的高级权限做ACL（Access Control List，访问控制列表）
 
 | 级别 | 谁 | 能做什么 |
 | --- | --- | --- |
-| 可阅读 | 由开发者自定:开链接分享(组织内获得链接的人可阅读,外部分享保持关闭)= 组织内可读;不开 = 仅协作者可读;协作者加不加、加谁都由开发者决定 | 读文档、装Skill——**能读文档 = 能装** |
-| 可编辑 | 维护人(协作者添加) | 改内容、发新版;装与更新都从文档拉取,改完下次安装即生效 |
+| 可阅读 | 由开发者自定：开链接分享（组织内获得链接的人可阅读，外部分享保持关闭）= 组织内可读；不开 = 仅协作者可读；协作者加不加、加谁都由开发者决定 | 读文档、装Skill——**能读文档 = 能装** |
+| 可编辑 | 维护人（协作者添加） | 改内容、发新版；装与更新都从文档拉取，改完下次安装即生效 |
 | 可管理 | 文档所有者 | 删文档、转让所有权、改链接分享设置 |
 
-### 凭证·登记(Agent 可代办)
+### 上架·登记清单（Agent 代办）
 
-- 凭证登记必须确认Skill Name, 然后根据凭证存储方式的不同,需要填不同的值
-
-| 确认项 | 要求 |
-| --- | --- |
-| Skill Name | Skill文档 frontmatter 的 name(关联键,填展示名/标题名接不上);一技一行,别建重名行 |
-| 凭证值契约 | JSON格式,支持多键同时注入,如 `{"XFC_TOKEN":"xxxxxx"}`;注入键 = Skill文档声明的键名,大写蛇形英文(XFC_TOKEN) |
-| 凭证权限-行存储模式 | 通过高级权限和人员字段控制:<br>· Owner 必填——必含维护人自己,可管理当前凭证<br>· Editor 选填——可编辑,不可删除<br>· Viewer 选填——仅可阅读使用<br>· Credentials 填 JSON 字符串 |
-| 凭证权限-云文档存储模式 | · 建只放 JSON 的凭证云文档,关闭其链接分享(必须)<br>· 个人/群/部门加为文档协作者,分可管理/可编辑/可阅读,对应行存储的 Owner/Editor/Viewer<br>· 该行 Credentials 回填文档链接<br>· 注意:此模式下凭证表该行人人可见,鉴权依赖云文档的协作者权限 |
-| 最后轮换 | 填登记时间 |
-| 状态 | 填「启用」 |
-
-- 用户填值时,Agent应主动询问用户是否需要编写脚本程序,协助用户填写.脚本必须满足:逐键静默收值(不回显)、按 Credentials 内容自动选写入位置(单元格或凭证文档)、顺带更新「最后轮换」
-- **通知**:界面手动加人(表格 Viewer 或文档协作者)默认勾选「发送通知」,不想打扰就取消;agent 代加天然无通知。要让对方知道,让 agent 代发一条消息说明
-
-### 凭证·轮换与吊销(Agent 可代办)
-
-| 操作 | 做法 | 注意 |
-| --- | --- | --- |
-| 轮换 | 表格/凭证文档界面直改,或 agent 现写脚本重灌(要求同「登记」) | 旧值即刻作废,报错的进程重取即可。云文档有版本历史,高敏凭证轮换后删文档重建、更新行内链接 |
-| 吊销 | 状态改「吊销」,新取值一律拒绝;反悔改回「启用」 | 可同时移除文档协作者,双保险。高敏凭证删行重建(旧值不留单元格变更历史),删行仅 Base 管理员与「凭证-管理员」可做 |
-
-### 上架·登记清单(Agent 代办)
-
-- 拉Skill清单文档取表格 XML,tbody 末尾追加一行(7 列照表头:名称、标签、地址、使用说明、版本、最后更新、状态),整表 block_replace 写回并回读;
-- 状态填「草稿」,改「可用」需维护人明确确认
+1. 拉Skill清单表格 XML，tbody 末尾追加一行（7 列照表头：名称、标签、地址、使用说明、版本、最后更新、状态），整表 block_replace 写回
+2. **回读确认自己的行在表里才算上架完成**；不在，或写入报「未产生变更」——并发时后写者失败而非覆盖，先写者的行不丢——重拉最新 XML 重试（至多 2 次），仍失败如实报告
+3. 新行状态填「草稿」，改「可用」需维护人明确确认
 
 ## 不做什么
 
 - 不自动上架——清单加行、状态改「可用」只在维护人明确指令时做
-- 不打印、不保存、不代填凭证值——值由维护人亲手填;agent 现写的填值脚本须经维护人过目
-- 取凭证只用使用者本人身份;lark-cli 扫码必须本人扫,不代点授权
-- 未经维护人指令不动 Viewer;群/部门授权先确认名单口径
-- 同名不猜——按名字加人(表格人员列或文档协作者)时,人/群/部门命中多个同名候选,列出来(带部门/邮箱/成员数等可区分信息)让用户选,确认前一个都不加
-- 403/看不见行 = 没权限,找维护人,不重试
+- 文档侧无权限（403/打不开）不重试、不绕过；代发权限申请需用户确认
 
 ## 需要凭证吗
 
